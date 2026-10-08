@@ -30,6 +30,9 @@ def main() -> int:
         print(f"failed to fetch {url}: {exc}", file=sys.stderr)
         return 1
 
+    if not isinstance(payload, dict):
+        print("CLIProxyAPI returned an unexpected response", file=sys.stderr)
+        return 1
     models = payload.get("data", [])
     if not isinstance(models, list) or not models:
         print("CLIProxyAPI returned no models", file=sys.stderr)
@@ -61,8 +64,7 @@ def main() -> int:
             }
         },
     }
-    if args.api_key:
-        config["providers"][args.provider]["settings"]["apiKey"] = args.api_key
+    config["providers"][args.provider]["settings"]["apiKey"] = "{env:CLIPROXYAPI_API_KEY}"
     if args.default:
         if args.default not in model_map:
             print(f"default model {args.default!r} is not present in /v1/models", file=sys.stderr)
