@@ -85,14 +85,15 @@ func (object sessionObject) Get(path string) gjson.Result {
 //  2. Claude Code metadata.user_id session
 //  3. Session-Id / Session_id (Codex and compatible clients)
 //  4. X-Http-Session-Id (Antigravity CLI)
-//  5. X-Session-ID / X-Session-Affinity / X-Slot-Session-Id
-//  6. X-Conversation-Id / X-Thread-Id / X-Client-Request-Id
-//  7. Gemini cachedContent
-//  8. OpenAI thread_id
-//  9. session_id / sessionId
-//  10. prompt_cache_key (pck:), conversation.id (conv:), metadata.user_id (user:)
-//  11. conversation_id / chat_id
-//  12. execution_session_id metadata
+//  5. X-Opencode-Session / X-Opencode-Session-Id
+//  6. X-Session-ID / X-Session-Affinity / X-Slot-Session-Id
+//  7. X-Conversation-Id / X-Thread-Id / X-Client-Request-Id
+//  8. Gemini cachedContent
+//  9. OpenAI thread_id
+//  10. session_id / sessionId
+//  11. prompt_cache_key (pck:), conversation.id (conv:), metadata.user_id (user:)
+//  12. conversation_id / chat_id
+//  13. execution_session_id metadata
 func ExtractSessionInfo(headers http.Header, payload []byte, metadata map[string]any) (SessionInfo, bool) {
 	var info SessionInfo
 	if metadata != nil {
@@ -472,55 +473,7 @@ func ExtractSessionInfo(headers http.Header, payload []byte, metadata map[string
 		return finalizeSessionInfo(info)
 	}
 
-	// 5. OpenCode-specific headers
-	// Newer OpenCode runtimes use x-opencode-session when talking to an
-	// OpenCode-native provider. Treat it as the same explicit session identity
-	// as X-Session-ID so proxies can preserve one affinity key regardless of
-	// provider transport. Canonical X-Session-ID remains higher priority.
-	if sid := sessionHeaderValue(headers, "X-Opencode-Session"); sid != "" {
-		info.ClientType = "opencode"
-		info.SessionID = "header:" + sid
-		parentSID := sessionHeaderValue(headers, "X-Opencode-Parent-Session-ID")
-		if parentSID == "" {
-			parentSID = sessionHeaderValue(headers, "X-Parent-Session-ID")
-		}
-		if parentSID == "" {
-			parentSID = sessionHeaderValue(headers, "X-Parent-Session-Id")
-		}
-		if parentSID != "" && parentSID != sid {
-			info.ParentSessionID = "header:" + parentSID
-			info.AgentName = "subagent"
-		} else if parentCandidate != "" && parentCandidate != sid {
-			info.ParentSessionID = "header:" + parentCandidate
-			info.AgentName = "subagent"
-		} else {
-			info.AgentName = "main"
-		}
-		return finalizeSessionInfo(info)
-	}
-	if sid := sessionHeaderValue(headers, "X-Opencode-Session-Id"); sid != "" {
-		info.ClientType = "opencode"
-		info.SessionID = "header:" + sid
-		parentSID := sessionHeaderValue(headers, "X-Opencode-Parent-Session-ID")
-		if parentSID == "" {
-			parentSID = sessionHeaderValue(headers, "X-Parent-Session-ID")
-		}
-		if parentSID == "" {
-			parentSID = sessionHeaderValue(headers, "X-Parent-Session-Id")
-		}
-		if parentSID != "" && parentSID != sid {
-			info.ParentSessionID = "header:" + parentSID
-			info.AgentName = "subagent"
-		} else if parentCandidate != "" && parentCandidate != sid {
-			info.ParentSessionID = "header:" + parentCandidate
-			info.AgentName = "subagent"
-		} else {
-			info.AgentName = "main"
-		}
-		return finalizeSessionInfo(info)
-	}
-
-	// 6. OpenCode / Pi Slot / Task / Generic Headers
+	// 6. X-Session-ID / X-Session-Affinity / X-Slot-Session-Id
 	if sid := sessionHeaderValue(headers, "X-Session-ID"); sid != "" {
 		info.ClientType = "generic"
 		info.SessionID = "header:" + sid
@@ -569,6 +522,54 @@ func ExtractSessionInfo(headers http.Header, payload []byte, metadata map[string
 		}
 		return finalizeSessionInfo(info)
 	}
+	// 5. OpenCode-specific headers (used only when canonical session headers are absent).
+	// Newer OpenCode runtimes use x-opencode-session when talking to an
+	// OpenCode-native provider. Treat it as the same explicit session identity
+	// as X-Session-ID so proxies can preserve one affinity key regardless of
+	// provider transport. Canonical X-Session-ID remains higher priority.
+	if sid := sessionHeaderValue(headers, "X-Opencode-Session"); sid != "" {
+		info.ClientType = "opencode"
+		info.SessionID = "header:" + sid
+		parentSID := sessionHeaderValue(headers, "X-Opencode-Parent-Session-ID")
+		if parentSID == "" {
+			parentSID = sessionHeaderValue(headers, "X-Parent-Session-ID")
+		}
+		if parentSID == "" {
+			parentSID = sessionHeaderValue(headers, "X-Parent-Session-Id")
+		}
+		if parentSID != "" && parentSID != sid {
+			info.ParentSessionID = "header:" + parentSID
+			info.AgentName = "subagent"
+		} else if parentCandidate != "" && parentCandidate != sid {
+			info.ParentSessionID = "header:" + parentCandidate
+			info.AgentName = "subagent"
+		} else {
+			info.AgentName = "main"
+		}
+		return finalizeSessionInfo(info)
+	}
+	if sid := sessionHeaderValue(headers, "X-Opencode-Session-Id"); sid != "" {
+		info.ClientType = "opencode"
+		info.SessionID = "header:" + sid
+		parentSID := sessionHeaderValue(headers, "X-Opencode-Parent-Session-ID")
+		if parentSID == "" {
+			parentSID = sessionHeaderValue(headers, "X-Parent-Session-ID")
+		}
+		if parentSID == "" {
+			parentSID = sessionHeaderValue(headers, "X-Parent-Session-Id")
+		}
+		if parentSID != "" && parentSID != sid {
+			info.ParentSessionID = "header:" + parentSID
+			info.AgentName = "subagent"
+		} else if parentCandidate != "" && parentCandidate != sid {
+			info.ParentSessionID = "header:" + parentCandidate
+			info.AgentName = "subagent"
+		} else {
+			info.AgentName = "main"
+		}
+		return finalizeSessionInfo(info)
+	}
+
 	if sid := sessionHeaderValue(headers, "X-Slot-Session-Id"); sid != "" {
 		info.ClientType = "pi"
 		info.SessionID = "slot:" + sid
