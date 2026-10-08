@@ -46,6 +46,23 @@ You can access the following providers locally and with multiple CLI accounts th
 </table>
 
 
+## OpenCode as a unified CLIProxyAPI client
+
+OpenCode can use this fork as a single OpenAI-compatible gateway. CLIProxyAPI keeps the provider-specific authentication, routing, retries, and session affinity behind one endpoint, while OpenCode only needs one provider entry.
+
+For current OpenCode V2, use the native OpenAI-compatible package with the proxy's `/v1` endpoint. OpenCode custom providers require an explicit model map, so this repository includes `scripts/generate-opencode-config.py` to build that map from CLIProxyAPI's live `/v1/models` inventory.
+
+```bash
+python3 scripts/generate-opencode-config.py \
+  --base-url http://127.0.0.1:8317/v1 \
+  --api-key "$CLIPROXYAPI_API_KEY" \
+  --output opencode.json
+```
+
+Then point OpenCode at the generated `opencode.json`. The generated provider is named `cliproxy`, so models are selected as `cliproxy/<model-id>`.
+
+CLIProxyAPI also recognizes OpenCode session headers (`X-Opencode-Session`, `X-Opencode-Session-Id`, and the corresponding parent-session header) and maps them into the same session-affinity system used by the other supported clients.
+
 ## Sponsor
 
 [![https://www.packyapi.com/register?aff=cliproxyapi](./assets/packycode-en.png)](https://www.packyapi.com/register?aff=cliproxyapi)
