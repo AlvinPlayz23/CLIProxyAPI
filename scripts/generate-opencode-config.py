@@ -74,6 +74,7 @@ def main() -> int:
     with open(args.output, "w", encoding="utf-8") as handle:
         json.dump(config, handle, indent=2)
         handle.write("\n")
+    os.chmod(args.output, 0o600)
 
     print(f"wrote {len(model_map)} models to {args.output}")
     return 0
