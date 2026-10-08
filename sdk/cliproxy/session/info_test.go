@@ -174,6 +174,56 @@ func TestExtractSessionInfoAllClients(t *testing.T) {
 	}
 }
 
+func TestExtractSessionInfoOpenCodeHeaders(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		headers    http.Header
+		wantClient string
+		wantID     string
+		wantParent string
+	}{
+		{
+			name:       "x-opencode-session",
+			headers:    http.Header{"X-Opencode-Session": []string{"oc-child"}},
+			wantClient: "opencode",
+			wantID:     "header:oc-child",
+		},
+		{
+			name: "x-opencode-session-id with parent",
+			headers: http.Header{
+				"X-Opencode-Session-Id":         []string{"oc-child"},
+				"X-Opencode-Parent-Session-ID": []string{"oc-parent"},
+			},
+			wantClient: "opencode",
+			wantID:     "header:oc-child",
+			wantParent: "header:oc-parent",
+		},
+		{
+			name: "canonical session wins",
+			headers: http.Header{
+				"X-Session-ID":       []string{"canonical"},
+				"X-Opencode-Session": []string{"opencode-alias"},
+			},
+			wantClient: "generic",
+			wantID:     "header:canonical",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info, ok := ExtractSessionInfo(tt.headers, nil, nil)
+			if !ok {
+				t.Fatal("ExtractSessionInfo() returned no session")
+			}
+			if info.ClientType != tt.wantClient || info.SessionID != tt.wantID || info.ParentSessionID != tt.wantParent {
+				t.Fatalf("got %+v, want client=%q id=%q parent=%q", info, tt.wantClient, tt.wantID, tt.wantParent)
+			}
+		})
+	}
+}
+
 func TestExtractSessionInfoCanonicalizesPayloadParentForHeaderSessions(t *testing.T) {
 	t.Parallel()
 
