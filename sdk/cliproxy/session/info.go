@@ -472,7 +472,55 @@ func ExtractSessionInfo(headers http.Header, payload []byte, metadata map[string
 		return finalizeSessionInfo(info)
 	}
 
-	// 5. OpenCode / Pi Slot / Task / Generic Headers
+	// 5. OpenCode-specific headers
+	// Newer OpenCode runtimes use x-opencode-session when talking to an
+	// OpenCode-native provider. Treat it as the same explicit session identity
+	// as X-Session-ID so proxies can preserve one affinity key regardless of
+	// provider transport. Canonical X-Session-ID remains higher priority.
+	if sid := sessionHeaderValue(headers, "X-Opencode-Session"); sid != "" {
+		info.ClientType = "opencode"
+		info.SessionID = "header:" + sid
+		parentSID := sessionHeaderValue(headers, "X-Opencode-Parent-Session-ID")
+		if parentSID == "" {
+			parentSID = sessionHeaderValue(headers, "X-Parent-Session-ID")
+		}
+		if parentSID == "" {
+			parentSID = sessionHeaderValue(headers, "X-Parent-Session-Id")
+		}
+		if parentSID != "" && parentSID != sid {
+			info.ParentSessionID = "header:" + parentSID
+			info.AgentName = "subagent"
+		} else if parentCandidate != "" && parentCandidate != sid {
+			info.ParentSessionID = "header:" + parentCandidate
+			info.AgentName = "subagent"
+		} else {
+			info.AgentName = "main"
+		}
+		return finalizeSessionInfo(info)
+	}
+	if sid := sessionHeaderValue(headers, "X-Opencode-Session-Id"); sid != "" {
+		info.ClientType = "opencode"
+		info.SessionID = "header:" + sid
+		parentSID := sessionHeaderValue(headers, "X-Opencode-Parent-Session-ID")
+		if parentSID == "" {
+			parentSID = sessionHeaderValue(headers, "X-Parent-Session-ID")
+		}
+		if parentSID == "" {
+			parentSID = sessionHeaderValue(headers, "X-Parent-Session-Id")
+		}
+		if parentSID != "" && parentSID != sid {
+			info.ParentSessionID = "header:" + parentSID
+			info.AgentName = "subagent"
+		} else if parentCandidate != "" && parentCandidate != sid {
+			info.ParentSessionID = "header:" + parentCandidate
+			info.AgentName = "subagent"
+		} else {
+			info.AgentName = "main"
+		}
+		return finalizeSessionInfo(info)
+	}
+
+	// 6. OpenCode / Pi Slot / Task / Generic Headers
 	if sid := sessionHeaderValue(headers, "X-Session-ID"); sid != "" {
 		info.ClientType = "generic"
 		info.SessionID = "header:" + sid
